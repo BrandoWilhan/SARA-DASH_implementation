@@ -26,6 +26,7 @@ class R2A_Sara(IR2A):
         self.b_curr = 0
         self.curr_seg = 0
         self.curr_qi = 0
+        self.delay = 0
         
 
     def handle_xml_request(self, msg):
@@ -47,26 +48,41 @@ class R2A_Sara(IR2A):
         
         self.request_time = time.perf_counter()
 
-        selected_qi = self.qi[0]
         self.h_mean = harmonic_mean(self.throughputs, self.weights)
         self.b_curr = wb.get_buffer()
         
         if self.b_curr < self.b_min:
             selected_qi = self.qi[0]
-        elif size[curr_qi][curr_seg+1]/self.h_mean > self.b_curr - self.b_min:
-            while size[curr_qi][curr_seg+1]/self.h_mean > self.b_curr - self.b_min:
+        elif size[self.curr_qi][self.curr_seg+1]/self.h_mean > self.b_curr - self.b_min:
+            while size[self.curr_qi][self.curr_seg+1]/self.h_mean > self.b_curr - self.b_min:
                 curr_qi = curr_qi - 1
-            selected_qi = curr_qi
-        #elif #falta terminar
+                
+        elif self.b_curr <= self.b_alpha:
+            if size[self.curr_qi][self.curr_seg+1]/self.h_mean < self.b_curr - self.b_min:
+                self.curr_qi = self.curr_qi+1
+            else:
+                self.curr_qi = self.curr_qi
+                
+        elif self.b_curr <= self.b_beta:
+            while size[self.curr_qi][self.curr_seg+1]/self.h_mean <= self.b_curr - self.b_min:
+                curr_qi = curr_qi + 1
+            self.curr_qi = curr_qi - 1
         
+        elif self.b_curr > self.b_beta:
+            while size[self.curr_qi][self.curr_seg+1]/self.h_mean <= self.b_curr - self.b_alpha:
+                self.curr_qi = curr_qi + 1
+            self.curr_qi = curr_qi - 1
+            self.delay = self.b_curr - self.b_beta
+            
+        else:
+            self.curr_qi = self.curr_qi
+            
         
-        
-        
-        for i in self.qi:
-            if self.h_mean > i:
-                selected_qi = i
+        if self.delay > 0:
+            time.sleep(self.delay)
+            self.delay = 0
 
-        msg.add_quality_id(selected_qi)
+        msg.add_quality_id(self.curr_qi)
         self.send_down(msg)
 
     def handle_segment_size_response(self, msg):
