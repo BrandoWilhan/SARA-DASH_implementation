@@ -24,13 +24,13 @@ class R2A_Sara(IR2A):
         self.request_time = 0
         self.qi = []
         self.seg_size = []
-        self.seg_time = []
+        self.seg_size_per_throughput = []
         self.seg_size_per_qi = []
         self.h_mean = 0
-        self.b_max = self.wb.get_max_buffer_size()
-        self.b_min = 2
-        self.b_alpha = math.floor(self.b_max*0.4)
-        self.b_beta = math.floor(self.b_max*0.8)
+        self.b_max = 0
+        self.b_min = 0
+        self.b_alpha = 0
+        self.b_beta = 0
         self.b_curr = 0
         self.curr_seg = 0
         self.curr_qi = 0
@@ -57,13 +57,18 @@ class R2A_Sara(IR2A):
         self.qi = parsed_mpd.get_qi()
         for i in range(len(self.qi)):
             self.seg_size_per_qi.append([])
+            
+        self.b_max = self.wb.get_max_buffer_size()
+        self.b_min = math.floor(self.b_max*0.2)
+        self.b_alpha = math.floor(self.b_max*0.4)
+        self.b_beta = math.floor(self.b_max*0.8)
         
         self.send_up(msg)
 
     def handle_segment_size_request(self, msg):
 
-        if sum(self.seg_time) != 0:
-            self.h_mean = sum(self.seg_size)/sum(self.seg_time)
+        if sum(self.seg_size_per_throughput) != 0:
+            self.h_mean = sum(self.seg_size)/sum(self.seg_size_per_throughput)
         else:
             self.h_mean = 1
             
@@ -89,7 +94,7 @@ class R2A_Sara(IR2A):
                 self.curr_qi = self.curr_qi
                 
         elif self.b_curr <= self.b_beta:
-            while (self.estimated_size_for_next_seg(self.curr_qi)/self.h_mean <= self.b_curr - self.b_min) and (self.curr_qi < len(self.qi)):
+            while (self.curr_qi < len(self.qi)) and (self.estimated_size_for_next_seg(self.curr_qi)/self.h_mean <= self.b_curr - self.b_min):
                 self.curr_qi = self.curr_qi + 1
             
             self.curr_qi = self.curr_qi - 1
@@ -114,7 +119,10 @@ class R2A_Sara(IR2A):
         t = time.perf_counter() - self.request_time
         self.throughputs.append(msg.get_bit_length() / t)
         self.seg_size.append(msg.get_segment_size())
-        self.seg_time.append(t)
+        if msg.get_bit_length() != 0 and t != 0:
+            self.seg_size_per_throughput.append(msg.get_segment_size()/(msg.get_bit_length() / t))
+        else:
+            self.seg_size_per_throughput.append(0)
         
         self.seg_size.append(msg.get_bit_length())
         self.seg_size_per_qi[self.curr_qi].append(msg.get_bit_length())
