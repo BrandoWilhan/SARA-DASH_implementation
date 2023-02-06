@@ -1,4 +1,6 @@
 """
+            GRUPO 2
+            
 @authors:   Brando Wilhan Galdino da Silva      -   17/0161579
             Sabrina Carvalho Neves              -   17/0113973
             Thiago Cardoso Pinheiro Dias Pais   -   16/0146372
